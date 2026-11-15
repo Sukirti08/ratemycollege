@@ -1,6 +1,6 @@
 # RateMyCollege India 🎓
 
-> Honest, student-verified ratings for IITs, NITs, IIITs, and top Indian engineering colleges.
+A college discovery portfolio project maintained by [Sukirti08](https://github.com/Sukirti08). Browse IITs, NITs, IIITs, and other engineering colleges, compare campuses, and explore reviews and placement data. The portfolio demo uses labeled sample records.
 
 ---
 

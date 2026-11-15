@@ -156,11 +156,11 @@ export default function Home() {
             color: "#fff", lineHeight: 1.15, marginBottom: 12,
             letterSpacing: "-0.02em",
           }}>
-            Real Reviews from<br />
-            <span style={{ color: "#fbbf24" }}>Real Students</span>
+            Explore Indian<br />
+            <span style={{ color: "#fbbf24" }}>Engineering Colleges</span>
           </h1>
           <p style={{ color: "#c7d2fe", fontSize: "1.05rem", marginBottom: 32, maxWidth: 520 }}>
-            Honest insights on placements, faculty, hostel life, and more — from students who've been there.
+            Compare colleges by placements, faculty, hostel life, and campus reviews.
           </p>
 
           {/* Search input */}
