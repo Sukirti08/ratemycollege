@@ -1,5 +1,7 @@
 import axiosInstance from './axiosInstance.js';
 
+const withId = (record) => ({ ...record, id: record._id });
+
 export const getColleges = async ({
   search = '',
   type = '',
@@ -10,12 +12,12 @@ export const getColleges = async ({
   const response = await axiosInstance.get('/colleges', {
     params: { search, type, sortBy, page, limit },
   });
-  return response.data; // { colleges, total, page, totalPages }
+  return response.data.colleges.map(withId);
 };
 
 export const getCollegeById = async (id) => {
   const response = await axiosInstance.get(`/colleges/${id}`);
-  return response.data;
+  return withId(response.data.college);
 };
 
 export const getCollegeReviews = async (
@@ -30,7 +32,7 @@ export const getCollegeReviews = async (
 
 export const getCollegeProfessors = async (id) => {
   const response = await axiosInstance.get(`/colleges/${id}/professors`);
-  return response.data;
+  return response.data.professors.map(withId);
 };
 
 export const getCollegePlacements = async (id) => {
@@ -40,7 +42,7 @@ export const getCollegePlacements = async (id) => {
 
 export const getCollegeQuestions = async (id) => {
   const response = await axiosInstance.get(`/colleges/${id}/questions`);
-  return response.data;
+  return response.data.questions;
 };
 
 export const getLeaderboard = async ({
@@ -51,7 +53,7 @@ export const getLeaderboard = async ({
   const response = await axiosInstance.get('/colleges/leaderboard', {
     params: { category, type, limit },
   });
-  return response.data;
+  return response.data.colleges.map(withId);
 };
 
 export const getTrending = async () => {

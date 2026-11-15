@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getColleges } from "../api/colleges";
+import { getColleges, getCollegeById } from "../api/colleges";
 import { submitReview } from "../api/reviews";
 import { googleLogin } from "../api/auth";
 import { useAuthStore } from "../store/authStore";
@@ -58,9 +58,9 @@ export default function WriteReview() {
   useEffect(() => {
     const collegeId = searchParams.get("college");
     if (collegeId) {
-      getColleges({ id: collegeId }).then((res) => {
-        if (res?.data?.[0]) {
-          setSelectedCollege(res.data[0]);
+      getCollegeById(collegeId).then((college) => {
+        if (college) {
+          setSelectedCollege(college);
           setFormData((p) => ({ ...p, collegeId }));
           setCurrentStep(2);
         }
@@ -75,7 +75,7 @@ export default function WriteReview() {
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await getColleges({ search: collegeSearch });
-        setCollegeResults(res?.data || []);
+        setCollegeResults(res);
         setShowDropdown(true);
       } catch { setCollegeResults([]); }
     }, 300);

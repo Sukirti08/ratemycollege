@@ -20,3 +20,13 @@ export const deleteReview = async (reviewId) => {
   const response = await axiosInstance.delete(`/reviews/${reviewId}`);
   return response.data;
 };
+
+export const addQuestion = async (collegeId, { text }) => {
+  const response = await axiosInstance.post('/reviews/question', { collegeId, text });
+  return response.data.question;
+};
+
+export const addAnswer = async (questionId, { text }) => {
+  const response = await axiosInstance.post(`/reviews/question/${encodeURIComponent(questionId)}/answer`, { text });
+  return response.data.question;
+};
