@@ -36,14 +36,6 @@ const logout = (req, res) => {
  */
 const getMe = async (req, res) => {
   try {
-    // req.user is populated by the protect middleware
-    const user = await req.user
-      .populate('college', 'name shortName type')
-      .execPopulate
-      ? await req.user.populate('college', 'name shortName type')
-      : req.user; // handle both mongoose v5 and v6+
-
-    // For Mongoose 6+ populate is not chainable the same way – use User.findById
     const User = require('../models/User');
     const fullUser = await User.findById(req.user._id)
       .select('_id name email avatar college branch batchYear karmaPoints isVerified reviewsWritten')

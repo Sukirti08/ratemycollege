@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: sukirti08-ratemycollege-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev --prefix server && npm ci --include=dev --prefix client && VITE_DEMO_DATA=true npm run build --prefix client
+    startCommand: node server/seed.js && npm start --prefix server
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_CLIENT
+        value: "true"
+      - key: DEMO_DATA
+        value: "true"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false

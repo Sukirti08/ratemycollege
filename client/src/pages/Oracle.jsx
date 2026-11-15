@@ -78,7 +78,7 @@ export default function Oracle() {
   const { user, signInWithGoogle } = useAuthStore();
   const { addToast } = useToastStore();
 
-  const [sessionId] = useState(() => Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const [sessionId] = useState(() => crypto.randomUUID());
   const [storedMessages, setStoredMessages] = useLocalStorage(`oracle-chat-${sessionId}`, []);
 
   const [messages, setMessages] = useState(storedMessages || []);
@@ -126,45 +126,48 @@ export default function Oracle() {
       try {
         const history = newMessages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
         const response = await createOracleEventSource({ message: trimmed, history, sessionId });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.message || "Oracle could not start the answer.");
+        }
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
-        let firstToken = true;
         let accumulated = "";
+        let buffer = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            buffer += decoder.decode(value, { stream: !done });
+            const events = buffer.split(/\r?\n\r?\n/);
+            buffer = events.pop();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split("\n").filter(Boolean);
-
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            try {
-              const parsed = JSON.parse(line.slice(5).trim());
+            for (const event of events) {
+              const data = event.split(/\r?\n/).filter((line) => line.startsWith("data:"))
+                .map((line) => line.slice(5).trimStart()).join("\n");
+              if (!data) continue;
+              const parsed = JSON.parse(data);
+              if (parsed.error) throw new Error(parsed.error);
               if (parsed.done) {
                 const finalMsgs = [...newMessages, { ...assistantMsg, content: accumulated, isStreaming: false }];
                 setMessages(finalMsgs);
                 saveMessages(finalMsgs);
-                setIsStreaming(false);
-                setShowTyping(false);
                 return;
               }
-              if (parsed.token) {
-                if (firstToken) {
-                  setShowTyping(false);
-                  firstToken = false;
-                }
+              if (typeof parsed.token === "string") {
+                setShowTyping(false);
                 accumulated += parsed.token;
                 setMessages([...newMessages, { ...assistantMsg, content: accumulated, isStreaming: true }]);
               }
-            } catch {}
+            }
+            if (done) throw new Error("The Oracle response ended early.");
           }
+        } finally {
+          await reader.cancel().catch(() => {});
         }
       } catch (err) {
-        console.error(err);
-        addToast({ type: "error", message: "Oracle is taking a break. Try again." });
+        setMessageCount((count) => Math.max(0, count - 1));
+        addToast({ type: "error", message: err.message || "Oracle is taking a break. Try again." });
         setMessages([
           ...messages,
           userMsg,
@@ -324,7 +327,7 @@ export default function Oracle() {
             <span style={{ fontSize: "1.25rem" }}>✦</span>
             <div>
               <h1>Oracle<span className="dot">.</span></h1>
-              <div className="oracle-caption">Powered by Claude</div>
+              <div className="oracle-caption">{import.meta.env.VITE_DEMO_DATA === "true" ? "College sample data" : "College discovery assistant"}</div>
             </div>
           </div>
           {messages.length > 0 && (

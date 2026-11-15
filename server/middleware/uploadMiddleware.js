@@ -44,7 +44,7 @@ const processUpload = async (req, res, next) => {
 
   try {
     const folder = req.uploadFolder || 'ratemycollege/uploads';
-    const result = await uploadToCloudinary(req.file.buffer, folder);
+    const result = await uploadToCloudinary(req.file.buffer, folder, { type: "authenticated" });
     req.uploadedFile = result; // { url, publicId }
     next();
   } catch (error) {

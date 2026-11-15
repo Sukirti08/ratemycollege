@@ -4,7 +4,9 @@ const User = require('../models/User');
 const College = require('../models/College');
 const { isCollegeEmail, getDomainFromEmail } = require('../utils/emailValidator');
 
-passport.use(
+const googleConfigured = Boolean(process.env.JWT_SECRET && process.env.GOOGLE_CLIENT_ID &&
+  process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CALLBACK_URL);
+if (googleConfigured) passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
@@ -70,4 +72,4 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-module.exports = passport;
+module.exports = { passport, googleConfigured };

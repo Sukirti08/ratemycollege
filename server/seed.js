@@ -4,81 +4,12 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 
-// ─── Inline Schema Definitions ────────────────────────────────────────────────
-// (mirrors your actual models — adjust imports if you have separate model files)
-
-const collegeSchema = new mongoose.Schema({
-  name: String,
-  shortName: String,
-  type: { type: String, enum: ['IIT', 'NIT', 'BITS', 'IIIT', 'Other'] },
-  location: { city: String, state: String },
-  website: String,
-  establishedYear: Number,
-  branches: [String],
-  ratings: {
-    overall: Number, teaching: Number, placements: Number,
-    research: Number, hostel: Number, infrastructure: Number,
-    facultyAccessibility: Number,
-  },
-  claimedAvgPackage: Number,
-  actualAvgPackage: Number,
-  topRecruiters: [String],
-  emailDomains: [String],
-}, { timestamps: true });
-
-const professorSchema = new mongoose.Schema({
-  name: String,
-  college: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
-  department: String,
-  designation: { type: String, enum: ['Professor', 'Associate Professor', 'Assistant Professor'] },
-  ratings: {
-    overall: Number, clarity: Number, helpfulness: Number, fairness: Number,
-  },
-  tags: [String],
-  reviewCount: { type: Number, default: 0 },
-}, { timestamps: true });
-
-const reviewSchema = new mongoose.Schema({
-  college: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
-  batchYear: Number,
-  branch: String,
-  ratings: {
-    overall: Number, teaching: Number, placements: Number,
-    research: Number, hostel: Number, infrastructure: Number,
-    facultyAccessibility: Number,
-  },
-  text: String,
-  tags: [String],
-  isVerified: Boolean,
-  upvotes: { type: Number, default: 0 },
-  downvotes: { type: Number, default: 0 },
-}, { timestamps: true });
-
-const placementSchema = new mongoose.Schema({
-  college: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
-  company: String,
-  role: String,
-  ctc: Number,
-  branch: String,
-  year: Number,
-  isVerified: Boolean,
-}, { timestamps: true });
-
-const questionSchema = new mongoose.Schema({
-  college: { type: mongoose.Schema.Types.ObjectId, ref: 'College' },
-  question: String,
-  answers: [{
-    text: String,
-    upvotes: { type: Number, default: 0 },
-    createdAt: { type: Date, default: Date.now },
-  }],
-}, { timestamps: true });
-
-const College    = mongoose.model('College',    collegeSchema);
-const Professor  = mongoose.model('Professor',  professorSchema);
-const Review     = mongoose.model('Review',     reviewSchema);
-const Placement  = mongoose.model('Placement',  placementSchema);
-const Question   = mongoose.model('Question',   questionSchema);
+const { createHash } = require('node:crypto');
+const College = require('./models/College');
+const Professor = require('./models/Professor');
+const Review = require('./models/Review');
+const Placement = require('./models/PlacementData');
+const Question = require('./models/Question');
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
 const r = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(1));
@@ -810,107 +741,71 @@ const QUESTIONS_TEMPLATE = [
 ];
 
 // ─── Main Seed Function ───────────────────────────────────────────────────────
-async function seed() {
-  console.log('\n╔══════════════════════════════════════════╗');
-  console.log('║     RateMyCollege India — DB Seed        ║');
-  console.log('╚══════════════════════════════════════════╝\n');
-
-  // 1. Connect
-  console.log('► Connecting to MongoDB…');
-  await mongoose.connect(process.env.MONGODB_URI);
-  console.log('✓ Connected to MongoDB\n');
-
-  // 2. Drop existing collections
-  console.log('► Dropping existing collections…');
-  const collections = ['colleges', 'professors', 'reviews', 'placements', 'questions'];
-  for (const col of collections) {
-    try {
-      await mongoose.connection.db.dropCollection(col);
-      console.log(`  ✓ Dropped: ${col}`);
-    } catch (e) {
-      if (e.code === 26) {
-        console.log(`  ⊘ Skipped (not found): ${col}`);
-      } else {
-        throw e;
-      }
-    }
-  }
-  console.log();
-
-  // 3. Seed Colleges
-  console.log('► Seeding colleges…');
-  const colleges = await College.insertMany(COLLEGES_DATA);
-  console.log(`  ✓ Inserted ${colleges.length} colleges\n`);
-
-  // 4. Seed Professors
-  console.log('► Seeding professors…');
-  const professorDocs = [];
-  for (let i = 0; i < colleges.length; i++) {
-    const college = colleges[i];
-    const profs = PROFESSORS_TEMPLATE[i];
-    for (const p of profs) {
-      professorDocs.push({ ...p, college: college._id, reviewCount: Math.floor(Math.random() * 40) + 5 });
-    }
-  }
-  const professors = await Professor.insertMany(professorDocs);
-  console.log(`  ✓ Inserted ${professors.length} professors\n`);
-
-  // 5. Seed Reviews
-  console.log('► Seeding reviews…');
-  const reviewDocs = [];
-  for (let i = 0; i < colleges.length; i++) {
-    const college = colleges[i];
-    const colReviews = REVIEWS_DATA[i];
-    for (const rv of colReviews) {
-      reviewDocs.push({ ...rv, college: college._id });
-    }
-  }
-  const reviews = await Review.insertMany(reviewDocs);
-  console.log(`  ✓ Inserted ${reviews.length} reviews\n`);
-
-  // 6. Seed Placements
-  console.log('► Seeding placement records…');
-  const placementDocs = [];
-  for (let i = 0; i < colleges.length; i++) {
-    const college = colleges[i];
-    const colPlacements = PLACEMENTS_TEMPLATE[i];
-    for (const pl of colPlacements) {
-      placementDocs.push({ ...pl, college: college._id });
-    }
-  }
-  const placements = await Placement.insertMany(placementDocs);
-  console.log(`  ✓ Inserted ${placements.length} placement records\n`);
-
-  // 7. Seed Questions
-  console.log('► Seeding Q&A…');
-  const questionDocs = [];
-  for (let i = 0; i < colleges.length; i++) {
-    const college = colleges[i];
-    const colQs = QUESTIONS_TEMPLATE[i];
-    for (const q of colQs) {
-      questionDocs.push({ ...q, college: college._id });
-    }
-  }
-  const questions = await Question.insertMany(questionDocs);
-  console.log(`  ✓ Inserted ${questions.length} questions\n`);
-
-  // 8. Summary
-  console.log('╔══════════════════════════════════════════╗');
-  console.log('║              Seed Summary                ║');
-  console.log('╠══════════════════════════════════════════╣');
-  console.log(`║  Colleges   : ${String(colleges.length).padEnd(26)}║`);
-  console.log(`║  Professors : ${String(professors.length).padEnd(26)}║`);
-  console.log(`║  Reviews    : ${String(reviews.length).padEnd(26)}║`);
-  console.log(`║  Placements : ${String(placements.length).padEnd(26)}║`);
-  console.log(`║  Questions  : ${String(questions.length).padEnd(26)}║`);
-  console.log('╚══════════════════════════════════════════╝\n');
-  console.log('✅  Database seeded successfully!');
-
-  await mongoose.disconnect();
-  process.exit(0);
+function sampleId(...parts) {
+  const hex = createHash('sha256').update(parts.join(':')).digest('hex').slice(0, 24);
+  return new mongoose.Types.ObjectId(hex);
 }
 
-seed().catch((err) => {
-  console.error('❌  Seed failed:', err);
-  process.exit(1);
+async function saveSamples(Model, documents) {
+  if (!documents.length) return;
+  await Model.bulkWrite(documents.map((document) => ({
+    updateOne: {
+      filter: { _id: document._id },
+      update: { $setOnInsert: document },
+      upsert: true,
+      timestamps: false,
+    },
+  })));
+}
+
+async function seed() {
+  if (!process.env.MONGODB_URI) throw new Error('MONGODB_URI is required.');
+  await mongoose.connect(process.env.MONGODB_URI);
+  try {
+    await Promise.all([College, Review, Professor, Placement, Question].map((model) => model.init()));
+
+    for (const [index, data] of COLLEGES_DATA.entries()) {
+      const reviews = REVIEWS_DATA[index];
+      const college = await College.findOneAndUpdate(
+        { name: data.name },
+        { $setOnInsert: { ...data, reviewCount: reviews.length } },
+        { upsert: true, returnDocument: 'after', timestamps: false }
+      );
+      const collegeId = college._id;
+      const row = (kind, index) => ({
+        _id: sampleId(kind, collegeId, index),
+        college: collegeId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      await Promise.all([
+        saveSamples(Review, reviews.map(({ upvotes, downvotes, ...review }, i) => ({
+          ...row('review', i), ...review, author: sampleId('sample-author', collegeId, i),
+          isActive: true, isVerified: false, isSample: true,
+        }))),
+        saveSamples(Placement, PLACEMENTS_TEMPLATE[index].map(({ ctc, year, ...placement }, i) => ({
+          ...row('placement', i), ...placement, ctcLPA: ctc, batch: year,
+          submittedBy: sampleId('sample-placement', collegeId, i), isVerified: false, isSample: true,
+        }))),
+        saveSamples(Professor, PROFESSORS_TEMPLATE[index].map(({ tags, ratings, ...professor }, i) => ({
+          ...row('professor', i), ...professor,
+          ratings: { overall: ratings.overall, teachingClarity: ratings.clarity, accessibility: ratings.helpfulness, gradingFairness: ratings.fairness },
+          tags: (tags || []).map((tag) => ({ tag })),
+        }))),
+        saveSamples(Question, QUESTIONS_TEMPLATE[index].map(({ question, answers }, i) => ({
+          ...row('question', i), text: question, askedBy: sampleId('sample-question', collegeId, i),
+          answers: answers.map(({ text, upvotes }) => ({ text, helpfulVotes: upvotes })),
+        }))),
+      ]);
+    }
+    console.log(`Demo data ready for ${COLLEGES_DATA.length} colleges.`);
+  } finally {
+    await mongoose.disconnect();
+  }
+}
+
+seed().catch((error) => {
+  console.error('Could not seed sample data:', error.message);
+  process.exitCode = 1;
 });

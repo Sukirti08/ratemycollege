@@ -1,49 +1,43 @@
 const PlacementData = require('../models/PlacementData');
 const College = require('../models/College');
-const User = require('../models/User');
 
-// POST /placements/
+const validatePlacement = async (req, res, next) => {
+  const { collegeId, company, role, ctcLPA, batch, branch } = req.body;
+  const amount = Number(ctcLPA);
+  const year = Number(batch);
+  if (!College.base.isObjectIdOrHexString(collegeId) ||
+      ![company, role, branch].every((field) => typeof field === 'string' && field.trim()) ||
+      !Number.isFinite(amount) || amount < 1 || amount > 500 ||
+      !Number.isInteger(year) || year < 1900 || year > 2100) {
+    return res.status(400).json({ message: 'Enter a college, company, role, valid CTC, branch and batch year.' });
+  }
+  if (!(await College.exists({ _id: collegeId }))) {
+    return res.status(404).json({ message: 'College not found.' });
+  }
+  req.placementInput = {
+    college: collegeId, submittedBy: req.user._id, company, role, ctcLPA: amount, batch: year, branch,
+  };
+  next();
+};
+
 const submitPlacement = async (req, res) => {
   try {
-    const { company, role, ctcLPA, batch, branch } = req.body;
-    const userId = req.user._id;
-
-    const placementPayload = {
-      college: req.body.collegeId,
-      submittedBy: userId,
-      company,
-      role,
-      ctcLPA: parseFloat(ctcLPA),
-      batch,
-      branch,
+    const placement = await PlacementData.create({
+      ...req.placementInput,
+      offerLetterUrl: req.uploadedFile?.url,
+      offerLetterPublicId: req.uploadedFile?.publicId,
       isVerified: false,
-    };
-
-    if (req.uploadedFile) {
-      placementPayload.offerLetter = req.uploadedFile.url;
-      placementPayload.offerLetterPublicId = req.uploadedFile.publicId;
-      placementPayload.isVerified = true;
-    }
-
-    const placement = await PlacementData.create(placementPayload);
-
-    // Recalculate college actualAvgPackage
-    const allPlacements = await PlacementData.find({ college: placementPayload.college });
-    const avgPackage =
-      allPlacements.reduce((sum, p) => sum + p.ctcLPA, 0) / allPlacements.length;
-
-    await College.findByIdAndUpdate(placementPayload.college, {
-      actualAvgPackage: parseFloat(avgPackage.toFixed(2)),
     });
 
-    // Karma update
-    const karmaBonus = placement.isVerified ? 5 : 2;
-    await User.findByIdAndUpdate(userId, { $inc: { karma: karmaBonus } });
-
-    return res.status(201).json(placement);
+    const [stats] = await PlacementData.aggregate([
+      { $match: { college: placement.college, isSample: { $ne: true } } },
+      { $group: { _id: null, average: { $avg: '$ctcLPA' } } },
+    ]);
+    if (stats) await College.findByIdAndUpdate(placement.college, { actualAvgPackage: Number(stats.average.toFixed(2)) });
+    return res.status(201).json({ _id: placement._id, isVerified: false });
   } catch (err) {
-    console.error('submitPlacement error:', err);
-    return res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Placement submission failed:', err.name);
+    return res.status(500).json({ message: 'Could not submit the placement.' });
   }
 };
 
@@ -70,7 +64,7 @@ const getPlacementStats = async (req, res) => {
     const avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
 
     // Group by company
-    const companyMap = {};
+    const companyMap = Object.create(null);
     for (const p of allPlacements) {
       companyMap[p.company] = (companyMap[p.company] || 0) + 1;
     }
@@ -80,7 +74,7 @@ const getPlacementStats = async (req, res) => {
       .map(([company, count]) => ({ company, count }));
 
     // Group by branch: avg CTC
-    const branchMap = {};
+    const branchMap = Object.create(null);
     for (const p of allPlacements) {
       if (!branchMap[p.branch]) branchMap[p.branch] = [];
       branchMap[p.branch].push(p.ctcLPA);
@@ -95,7 +89,7 @@ const getPlacementStats = async (req, res) => {
     const recentPlacements = await PlacementData.find({ college: collegeId })
       .sort({ createdAt: -1 })
       .limit(10)
-      .select('-submittedBy');
+      .select('company role ctcLPA batch branch isVerified isSample createdAt');
 
     return res.status(200).json({
       overall: {
@@ -122,4 +116,4 @@ const getPlacementStats = async (req, res) => {
   }
 };
 
-module.exports = { submitPlacement, getPlacementStats };
+module.exports = { validatePlacement, submitPlacement, getPlacementStats };

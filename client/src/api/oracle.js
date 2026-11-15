@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance.js';
+import axiosInstance, { API_BASE_URL } from './axiosInstance.js';
 
 /**
  * Creates a streaming response from the Oracle chat endpoint.
@@ -8,7 +8,7 @@ import axiosInstance from './axiosInstance.js';
  * @returns {Promise<Response>} Raw fetch Response for the caller to stream
  */
 export const createOracleEventSource = ({ message, history, sessionId }) => {
-  return fetch('/api/oracle/chat', {
+  return fetch(`${API_BASE_URL}/oracle/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',

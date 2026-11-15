@@ -58,6 +58,7 @@ const reviewSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // set false when flaggedBy.length >= 5
     },
+    isSample: { type: Boolean, default: false },
     isVerified: {
       type: Boolean,
       default: false,

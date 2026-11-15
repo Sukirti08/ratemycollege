@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: API_BASE_URL,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -10,14 +12,7 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const { default: useAuthStore } = await import('../store/authStore.js');
-      useAuthStore.getState().logout();
-      window.location.href = '/';
-    }
-    return Promise.reject(error.response?.data?.message || error.message);
-  }
+  (error) => Promise.reject(new Error(error.response?.data?.message || error.message))
 );
 
 export default axiosInstance;

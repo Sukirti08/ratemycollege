@@ -14,7 +14,7 @@
 │                ↓ Axios (withCredentials)                 │
 │  Railway → Express.js API Server                        │
 │       ├── MongoDB Atlas (Mongoose ODM)                  │
-│       ├── Anthropic Claude API (Oracle feature)         │
+│       ├── Google Gemini API (Oracle feature)         │
 │       ├── Cloudinary (offer letter storage)             │
 │       └── Google OAuth 2.0 (passport.js)               │
 └─────────────────────────────────────────────────────────┘
@@ -29,7 +29,7 @@
 - **Professor Ratings** — Rate and tag individual professors per college
 - **Placement Data** — Crowdsourced CTC data with offer letter verification via Cloudinary
 - **Compare Colleges** — Side-by-side comparison of up to 4 colleges (persisted in localStorage)
-- **Oracle AI** — Ask any college question; get an AI answer powered by Anthropic Claude with real-time SSE streaming
+- **Oracle AI** — Ask any college question; get an AI answer powered by Google Gemini with real-time SSE streaming
 - **Google OAuth** — Passwordless login via Google, restricted to verified `.ac.in` email holders
 - **Q&A Board** — College-specific community Q&A with upvoting
 - **Package Truth Index** — Claimed vs actual average packages exposed per college
@@ -46,7 +46,7 @@ Before you begin, ensure you have the following installed and available:
 | npm | 9+ | Comes with Node 18 |
 | MongoDB Atlas account | — | Free tier works fine |
 | Google Cloud Console project | — | For OAuth credentials |
-| Anthropic API key | — | For Oracle AI feature |
+| Gemini API key | — | For Oracle AI feature |
 | Cloudinary account | — | For offer letter storage |
 
 ---
@@ -57,8 +57,8 @@ Follow these steps in order:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/ratemycollege-india.git
-   cd ratemycollege-india
+   git clone https://github.com/Sukirti08/ratemycollege.git
+   cd ratemycollege
    ```
 
 2. **Install server dependencies**
@@ -121,7 +121,7 @@ Follow these steps in order:
 | `GOOGLE_CLIENT_ID` | ✅ | From Google Cloud Console | `123456789-abc.apps.googleusercontent.com` |
 | `GOOGLE_CLIENT_SECRET` | ✅ | From Google Cloud Console | `GOCSPX-abcdefghijk` |
 | `GOOGLE_CALLBACK_URL` | ✅ | Must match exactly in Google Console | `http://localhost:5000/api/auth/google/callback` |
-| `ANTHROPIC_API_KEY` | ✅ | From console.anthropic.com | `sk-ant-api03-...` |
+| `GEMINI_API_KEY` | ✅ | From console.anthropic.com | `sk-ant-api03-...` |
 | `CLOUDINARY_CLOUD_NAME` | ✅ | From Cloudinary dashboard | `my-cloud-name` |
 | `CLOUDINARY_API_KEY` | ✅ | From Cloudinary dashboard | `123456789012345` |
 | `CLOUDINARY_API_SECRET` | ✅ | From Cloudinary dashboard | `abcdefghijklmnopqrstuvwxyz` |
@@ -194,7 +194,7 @@ Expected output:
 ✅  Database seeded successfully!
 ```
 
-> ⚠️ The seed script **drops all existing collections** before inserting. Do not run it on a production database with real user data.
+> Run the idempotent sample-data seed against a dedicated demo database.
 
 ---
 
@@ -319,7 +319,7 @@ When a student from a college not in the default list tries to verify:
 
 3. **Set environment variables on Vercel**
    - Go to Project Settings → Environment Variables
-   - Add: `VITE_API_URL` = `https://your-railway-app.railway.app`
+   - Add: `VITE_API_URL` = `https://your-railway-app.railway.app/api`
 
 4. **Configure `vercel.json`** in the `client` directory for SPA routing:
    ```json
@@ -353,7 +353,7 @@ When a student from a college not in the default list tries to verify:
    CLIENT_URL=https://your-app.vercel.app
    GOOGLE_CALLBACK_URL=https://your-app.railway.app/api/auth/google/callback
    MONGODB_URI=mongodb+srv://...
-   ANTHROPIC_API_KEY=sk-ant-...
+   GEMINI_API_KEY=sk-ant-...
    ```
 
 4. **Set the start command**
@@ -406,7 +406,7 @@ When a student from a college not in the default list tries to verify:
 | Auth | Passport.js + Google OAuth 2.0 | Social login |
 | Sessions | express-session | Server-side session store |
 | Auth Tokens | JSON Web Tokens (JWT) | Stateless auth via HTTP-only cookie |
-| AI Feature | Anthropic Claude API | Oracle AI Q&A with streaming |
+| AI Feature | Google Gemini API | Oracle AI Q&A with streaming |
 | File Storage | Cloudinary | Offer letter PDF/image upload and CDN |
 | Rate Limiting | express-rate-limit | API and Oracle endpoint protection |
 | Deployment (FE) | Vercel | CDN + serverless hosting for React |
@@ -439,3 +439,16 @@ MIT License — see [LICENSE](./LICENSE) for details.
 ---
 
 *Built for Indian students, by Indian students. Honest reviews only.*
+
+## Portfolio demo on Render
+
+The root `render.yaml` builds the frontend and serves it from the Express
+service. Set `MONGODB_URI` to a dedicated demo database such as
+`ratemycollege_demo`. The service runs the idempotent seed on startup.
+The seed inserts labelled examples and does not drop collections.
+
+Guest browsing and the Oracle sample-data guide work without third-party
+keys. Set `GEMINI_API_KEY` and optionally `GEMINI_MODEL` to enable live
+Gemini replies. Configure Google OAuth and Cloudinary only if you want to
+enable those integrations. Uploading an offer letter stores authenticated
+evidence and leaves the submission pending review.

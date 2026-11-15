@@ -413,11 +413,11 @@ function PlacementForm({ onSubmit, onClose, isAuthenticated }) {
   };
 
   const handleSubmit = async () => {
-    if (!form.company || !form.role || !form.ctc) return;
+    if (!form.company.trim() || !form.role.trim() || !form.ctc || !form.branch || !form.batch) return;
     setSubmitting(true);
     try {
       const fd = new FormData();
-      Object.entries(form).forEach(([k, v]) => v && fd.append(k, v));
+      Object.entries(form).forEach(([k, v]) => v && fd.append(({ ctc: "ctcLPA", file: "offerLetter" })[k] || k, v));
       await onSubmit(fd);
       onClose();
     } finally {
@@ -731,7 +731,7 @@ export default function CollegeDetail() {
     try {
       const data = await getCollegePlacements(id);
       setPlacements(data);
-      setPlacRows(data?.verifiedPlacements || []);
+      setPlacRows(data?.records || []);
       loaded.current.placements = true;
     } catch {
       showToast?.("Failed to load placements", "error");
@@ -789,7 +789,8 @@ export default function CollegeDetail() {
 
   /* ── SUBMIT PLACEMENT ── */
   async function handlePlacementSubmit(formData) {
-    await submitPlacement(id, formData);
+    formData.set("collegeId", id);
+    await submitPlacement(formData);
     showToast?.("Placement submitted! Under review.", "success");
     loaded.current.placements = false;
     loadPlacements();
@@ -834,7 +835,7 @@ export default function CollegeDetail() {
 
   const comparing = isInCompare?.(id);
   const claimed   = placements?.claimedAvg    || 0;
-  const actual    = placements?.crowdsourcedAvg || 0;
+  const actual    = placements?.stats?.avgCTC || 0;
   const gap       = Math.abs(claimed - actual);
 
   return (
@@ -1052,7 +1053,7 @@ export default function CollegeDetail() {
                   </div>
 
                   {/* Top companies */}
-                  {placements?.topCompanies?.length > 0 && (
+                  {placements?.byCompany?.length > 0 && (
                     <div className="cd-card mb-4">
                       <div className="cd-card-title">Top Hiring Companies</div>
                       <table className="co-table">
@@ -1064,7 +1065,7 @@ export default function CollegeDetail() {
                           </tr>
                         </thead>
                         <tbody>
-                          {[...placements.topCompanies]
+                          {[...placements.byCompany]
                             .sort((a, b) => b.count - a.count)
                             .map((c, i) => (
                               <tr key={i}>
@@ -1083,7 +1084,7 @@ export default function CollegeDetail() {
                   {/* Verified placements */}
                   {placRows.length > 0 && (
                     <div className="cd-card mb-4">
-                      <div className="cd-card-title">Verified Student Placements</div>
+                      <div className="cd-card-title">Recent Placement Records</div>
                       <div style={{ overflowX: "auto" }}>
                         <table className="co-table">
                           <thead>
@@ -1102,13 +1103,13 @@ export default function CollegeDetail() {
                                 <td style={{ fontWeight: 500 }}>{p.company}</td>
                                 <td>{p.role}</td>
                                 <td style={{ color: "var(--jade)", fontWeight: 600 }}>
-                                  {formatPackage ? formatPackage(p.ctc) : `${p.ctc} LPA`}
+                                  {formatPackage ? formatPackage(p.ctcLPA) : `${p.ctcLPA} LPA`}
                                 </td>
                                 <td>{p.branch}</td>
                                 <td>{p.batch}</td>
                                 <td>
-                                  <span className={`co-badge ${p.verified ? "co-badge-verified" : "co-badge-unverified"}`}>
-                                    {p.verified ? "✓ Verified" : "Pending"}
+                                  <span className={`co-badge ${p.isVerified ? "co-badge-verified" : "co-badge-unverified"}`}>
+                                    {p.isSample ? "Sample" : p.isVerified ? "✓ Verified" : "Pending review"}
                                   </span>
                                 </td>
                               </tr>

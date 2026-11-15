@@ -41,7 +41,10 @@ function AppRoutes() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const errorParam = params.get('error');
-    if (errorParam === 'invalid_college_email') {
+    if (errorParam === 'oauth_unavailable') {
+      showErrorToast('Google sign-in is unavailable in this demo. You can browse as a guest.');
+      navigate(location.pathname, { replace: true });
+    } else if (errorParam === 'invalid_college_email') {
       showErrorToast('Sign in failed: Please use your official college email address (.ac.in or .edu.in).');
       // Clear the query parameter from the URL
       navigate(location.pathname, { replace: true });

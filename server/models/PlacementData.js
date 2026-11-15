@@ -28,11 +28,14 @@ const placementDataSchema = new mongoose.Schema(
       min: 1,
       max: 500,
     },
+    offerLetterPublicId: { type: String, default: "", select: false },
     offerLetterUrl: {
       type: String,
       default: '',
+      select: false,
       trim: true,
     },
+    isSample: { type: Boolean, default: false },
     isVerified: {
       type: Boolean,
       default: false, // true if offer letter uploaded and approved

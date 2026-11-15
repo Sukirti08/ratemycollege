@@ -116,6 +116,7 @@ const getCollegeReviews = async (req, res) => {
       flaggedBy: 1,
       isVerified: 1,
       isCommunityVerified: 1,
+      isSample: 1,
       createdAt: 1,
     };
 
@@ -128,8 +129,8 @@ const getCollegeReviews = async (req, res) => {
         { $match: { ...filter, college: new mongoose.Types.ObjectId(collegeId) } },
         {
           $addFields: {
-            helpfulCount: { $size: '$helpfulVotes' },
-            flaggedCount: { $size: '$flaggedBy' },
+            helpfulCount: { $size: { $ifNull: ['$helpfulVotes', []] } },
+            flaggedCount: { $size: { $ifNull: ['$flaggedBy', []] } },
           },
         },
         { $sort: { helpfulCount: -1 } },
@@ -146,10 +147,11 @@ const getCollegeReviews = async (req, res) => {
                   ratings: 1,
                   text: 1,
                   tags: 1,
-                  helpfulVotes: { $size: '$helpfulVotes' },
-                  flaggedBy: { $size: '$flaggedBy' },
+                  helpfulVotes: { $size: { $ifNull: ['$helpfulVotes', []] } },
+                  flaggedBy: { $size: { $ifNull: ['$flaggedBy', []] } },
                   isVerified: 1,
                   isCommunityVerified: 1,
+                  isSample: 1,
                   createdAt: 1,
                 },
               },
@@ -209,31 +211,35 @@ const getCollegeProfessors = async (req, res) => {
 const getCollegePlacements = async (req, res) => {
   try {
     const PlacementData = require('../models/PlacementData');
-    const records = await PlacementData.find({ college: req.params.id }).sort({ createdAt: -1 });
+    const [college, records] = await Promise.all([
+      College.findById(req.params.id).select('claimedAvgPackage').lean(),
+      PlacementData.find({ college: req.params.id }).select('company role ctcLPA batch branch isVerified isSample createdAt').sort({ createdAt: -1 }).lean()
+    ]);
 
     if (!records.length) {
       return res.json({
         success: true,
         stats: { avgCTC: 0, maxCTC: 0, minCTC: 0, verifiedCount: 0, totalCount: 0 },
+        claimedAvg: college?.claimedAvgPackage || 0,
         byCompany: [],
         byBranch: [],
         records: [],
       });
     }
 
-    const ctcValues = records.map((r) => r.ctc).filter(Boolean);
+    const ctcValues = records.map((r) => r.ctcLPA).filter(Boolean);
     const avgCTC = ctcValues.length ? ctcValues.reduce((a, b) => a + b, 0) / ctcValues.length : 0;
     const maxCTC = ctcValues.length ? Math.max(...ctcValues) : 0;
     const minCTC = ctcValues.length ? Math.min(...ctcValues) : 0;
     const verifiedCount = records.filter((r) => r.isVerified).length;
 
     // Group by company
-    const companyMap = {};
+    const companyMap = Object.create(null);
     records.forEach((r) => {
       if (!r.company) return;
       if (!companyMap[r.company]) companyMap[r.company] = { count: 0, total: 0 };
       companyMap[r.company].count += 1;
-      if (r.ctc) companyMap[r.company].total += r.ctc;
+      if (r.ctcLPA) companyMap[r.company].total += r.ctcLPA;
     });
     const byCompany = Object.entries(companyMap).map(([company, data]) => ({
       company,
@@ -242,12 +248,12 @@ const getCollegePlacements = async (req, res) => {
     }));
 
     // Group by branch
-    const branchMap = {};
+    const branchMap = Object.create(null);
     records.forEach((r) => {
       if (!r.branch) return;
       if (!branchMap[r.branch]) branchMap[r.branch] = { count: 0, total: 0 };
       branchMap[r.branch].count += 1;
-      if (r.ctc) branchMap[r.branch].total += r.ctc;
+      if (r.ctcLPA) branchMap[r.branch].total += r.ctcLPA;
     });
     const byBranch = Object.entries(branchMap).map(([branch, data]) => ({
       branch,
@@ -258,6 +264,7 @@ const getCollegePlacements = async (req, res) => {
     return res.json({
       success: true,
       stats: { avgCTC, maxCTC, minCTC, verifiedCount, totalCount: records.length },
+      claimedAvg: college?.claimedAvgPackage || 0,
       byCompany,
       byBranch,
       records: records.slice(0, 20),

@@ -5,9 +5,10 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const mongoose = require('mongoose');
+const path = require('node:path');
 
 const connectDB = require('./config/db');
-const passport = require('./config/passport');
+const { passport } = require('./config/passport');
 
 // Correct
 const authRoutes = require('./routes/auth');
@@ -22,9 +23,15 @@ const rateLimiter = require('./middleware/rateLimiter');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const serveClient = process.env.SERVE_CLIENT === 'true';
+if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 
 // Security & parsing middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: { imgSrc: ["'self'", 'data:', 'https:'] },
+  },
+}));
 app.use(cors({
   origin: process.env.CLIENT_URL,
   credentials: true,
@@ -47,8 +54,16 @@ app.use('/api/users', userRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
+  const connected = mongoose.connection.readyState === 1;
+  res.status(connected ? 200 : 503).json({ status: connected ? 'ok' : 'degraded' });
 });
+
+app.use('/api', (req, res) => res.status(404).json({ success: false, message: 'API route not found.' }));
+if (serveClient) {
+  const clientDir = path.resolve(__dirname, '../client/dist');
+  app.use(express.static(clientDir));
+  app.get('/{*route}', (req, res) => res.sendFile(path.join(clientDir, 'index.html')));
+}
 
 // 404 handler
 app.use((req, res, next) => {
